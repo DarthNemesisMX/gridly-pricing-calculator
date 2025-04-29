@@ -1,6 +1,5 @@
 import streamlit as st
 
-
 def calculate_gridly_pricing(plan, modules, total_platform_seats, total_translation_seats, billing_cycle):
     pricing_data = {
         "BASIC": {"platform_fee": 0},
@@ -47,11 +46,13 @@ def calculate_gridly_pricing(plan, modules, total_platform_seats, total_translat
         seat_fee = 35 if billing_cycle == "Monthly" and plan in ["BASIC", "TEAM"] else module_pricing["CMS"]["extra_seat_fee"].get(plan, 0)
         total_monthly_fee += extra_platform_seats * seat_fee
     if extra_translation_seats > 0:
-        seat_fee = 16 if billing_cycle == "Monthly" and plan in ["BASIC", "TEAM"] else module_pricing["CAT"]["extra_seat_fee"].get(plan, 0)
+        # 🛠️ Updated here: €17 for monthly translation extra seat in BASIC/TEAM
+        seat_fee = 17 if billing_cycle == "Monthly" and plan in ["BASIC", "TEAM"] else module_pricing["CAT"]["extra_seat_fee"].get(plan, 0)
         total_monthly_fee += extra_translation_seats * seat_fee
     
     return round(total_monthly_fee, 2), included_platform_seats, extra_platform_seats, included_translation_seats, extra_translation_seats
 
+# Streamlit UI
 st.title("Gridly Pricing Calculator")
 
 plan = st.selectbox("Select Plan", ["BASIC", "TEAM", "ENT 1", "ENT 2", "ENT 3", "ENT 4", "ENT 5", "LSP"])
@@ -61,13 +62,19 @@ modules = st.multiselect("Select Modules", ["CMS", "TMS", "CAT"], default=["CMS"
 total_platform_seats = st.number_input("Total Platform Seats", min_value=0, value=0)
 total_translation_seats = st.number_input("Total Translation Seats", min_value=0, value=0)
 
-if st.button("Calculate Pricing"):
-    monthly_fee, included_platform_seats, extra_platform_seats, included_translation_seats, extra_translation_seats = calculate_gridly_pricing(plan, modules, total_platform_seats, total_translation_seats, billing_cycle)
-    st.write(f"### Total Monthly Fee: €{monthly_fee}")
-    st.write(f"Plan: {plan}")
-    st.write(f"Billing Cycle: {billing_cycle}")
-    st.write(f"Selected Modules: {', '.join(modules)}")
-    st.write(f"Included Platform Seats: {included_platform_seats}")
-    st.write(f"Extra Platform Seats: {extra_platform_seats}")
-    st.write(f"Included Translation Seats: {included_translation_seats}")
-    st.write(f"Extra Translation Seats: {extra_translation_seats}")
+# 🚨 Blocker: Cannot add translation seats without CAT
+if total_translation_seats > 0 and "CAT" not in modules:
+    st.error("❌ Translators are only allowed if the CAT module is selected. Please add CAT module or set Translation Seats to 0.")
+else:
+    if st.button("Calculate Pricing"):
+        monthly_fee, included_platform_seats, extra_platform_seats, included_translation_seats, extra_translation_seats = calculate_gridly_pricing(
+            plan, modules, total_platform_seats, total_translation_seats, billing_cycle
+        )
+        st.write(f"### Total Monthly Fee: €{monthly_fee}")
+        st.write(f"Plan: {plan}")
+        st.write(f"Billing Cycle: {billing_cycle}")
+        st.write(f"Selected Modules: {', '.join(modules)}")
+        st.write(f"Included Platform Seats: {included_platform_seats}")
+        st.write(f"Extra Platform Seats: {extra_platform_seats}")
+        st.write(f"Included Translation Seats: {included_translation_seats}")
+        st.write(f"Extra Translation Seats: {extra_translation_seats}")
