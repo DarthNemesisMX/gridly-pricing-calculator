@@ -1,9 +1,17 @@
-import streamlit as st
+# --- Safe import: auto-install Streamlit if it's missing ---
+try:
+    import streamlit as st
+except ModuleNotFoundError:
+    import sys, subprocess
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "--no-cache-dir", "streamlit==1.37.1"])
+    import streamlit as st
 
 def money(x, currency):
-    return f"{'€' if currency == 'EUR' else '$'}{x:,.2f}"
+    euro = "\u20AC"  # avoids non-UTF-8 source bytes
+    symbol = euro if currency == "EUR" else "$"
+    return f"{symbol}{x:,.2f}"
 
-# ---------- Pricing Tables (copy-safe; all braces closed) ----------
+# ---------- Pricing Tables ----------
 PLATFORM_FEES = {
     "BASIC": 0, "TEAM": 0, "ENT 1": 0, "ENT 2": 370, "ENT 3": 740, "ENT 4": 1110, "ENT 5": 1480, "LSP": 915
 }
@@ -44,7 +52,6 @@ MODULES = {
         },
     },
 }
-# -------------------------------------------------------------------
 
 def calculate_gridly_pricing(plan, modules, total_platform_seats, total_translation_seats, billing_cycle, currency):
     module_pricing = MODULES[currency]
@@ -89,40 +96,60 @@ def calculate_gridly_pricing(plan, modules, total_platform_seats, total_translat
         included_translation_seats, extra_translation_seats
     )
 
-# =========================
-# UI
-# =========================
-st.title("Gridly Pricing Calculator")
+def run_app():
+    st.title("Gridly Pricing Calculator")
 
-currency = st.selectbox("Currency", ["EUR", "USD"])
-plan = st.selectbox("Select Plan", ["BASIC", "TEAM", "ENT 1", "ENT 2", "ENT 3", "ENT 4", "ENT 5", "LSP"])
-billing_cycle_options = ["Annually"] if plan in ["ENT 1", "ENT 2", "ENT 3", "ENT 4", "ENT 5", "LSP"] else ["Annually", "Monthly"]
-billing_cycle = st.radio("Billing Cycle", billing_cycle_options)
-modules = st.multiselect("Select Modules", ["CMS", "TMS", "CAT"], default=["CMS", "TMS"])
-total_platform_seats = st.number_input("Total Platform Seats", min_value=0, value=0)
+    currency = st.selectbox("Currency", ["EUR", "USD"])
+    plan = st.selectbox("Select Plan", ["BASIC", "TEAM", "ENT 1", "ENT 2", "ENT 3", "ENT 4", "ENT 5", "LSP"])
+    billing_cycle_options = ["Annually"] if plan in ["ENT 1", "ENT 2", "ENT 3", "ENT 4", "ENT 5", "LSP"] else ["Annually", "Monthly"]
+    billing_cycle = st.radio("Billing Cycle", billing_cycle_options)
+    modules = st.multiselect("Select Modules", ["CMS", "TMS", "CAT"], default=["CMS", "TMS"])
+    total_platform_seats = st.number_input("Total Platform Seats", min_value=0, value=0)
 
-translation_input_disabled = "CAT" not in modules
-total_translation_seats = st.number_input(
-    "Total Translation Seats",
-    min_value=0,
-    value=0,
-    disabled=translation_input_disabled,
-)
-
-if st.button("Calculate Pricing"):
-    (monthly_fee, annual_fee,
-     included_platform_seats, extra_platform_seats,
-     included_translation_seats, extra_translation_seats) = calculate_gridly_pricing(
-        plan, modules, total_platform_seats, total_translation_seats, billing_cycle, currency
+    translation_input_disabled = "CAT" not in modules
+    total_translation_seats = st.number_input(
+        "Total Translation Seats",
+        min_value=0,
+        value=0,
+        disabled=translation_input_disabled,
     )
 
-    st.write(f"### Total Monthly Fee: {money(monthly_fee, currency)}")
-    st.write(f"### Total Annual Fee: {money(annual_fee, currency)}")
-    st.write(f"Plan: {plan}")
-    st.write(f"Currency: {currency}")
-    st.write(f"Billing Cycle: {billing_cycle}")
-    st.write(f"Selected Modules: {', '.join(modules) if modules else 'None'}")
-    st.write(f"Included Platform Seats: {included_platform_seats}")
-    st.write(f"Extra Platform Seats: {extra_platform_seats}")
-    st.write(f"Included Translation Seats: {included_translation_seats}")
-    st.write(f"Extra Translation Seats: {extra_translation_seats}")
+    if st.button("Calculate Pricing"):
+        (monthly_fee, annual_fee,
+         included_platform_seats, extra_platform_seats,
+         included_translation_seats, extra_translation_seats) = calculate_gridly_pricing(
+            plan, modules, total_platform_seats, total_translation_seats, billing_cycle, currency
+        )
+
+        st.write(f"### Total Monthly Fee: {money(monthly_fee, currency)}")
+        st.write(f"### Total Annual Fee: {money(annual_fee, currency)}")
+        st.write(f"Plan: {plan}")
+        st.write(f"Currency: {currency}")
+        st.write(f"Billing Cycle: {billing_cycle}")
+        st.write(f"Selected Modules: {', '.join(modules) if modules else 'None'}")
+        st.write(f"Included Platform Seats: {included_platform_seats}")
+        st.write(f"Extra Platform Seats: {extra_platform_seats}")
+        st.write(f"Included Translation Seats: {included_translation_seats}")
+        st.write(f"Extra Translation Seats: {extra_translation_seats}")
+
+# --- Auto-bootstrap Streamlit if the platform runs `python gridly_pricing.py` ---
+if __name__ == "__main__":
+    try:
+        running_under_streamlit = hasattr(st, "runtime") and callable(getattr(st.runtime, "exists", None)) and st.runtime.exists()
+    except Exception:
+        running_under_streamlit = False
+
+    if running_under_streamlit:
+        run_app()
+    else:
+        import os, sys
+        try:
+            from streamlit.web import cli as stcli
+            port = os.getenv("PORT", "8501")  # uses platform PORT if set, else 8501
+            sys.argv = ["streamlit", "run", __file__, "--server.address", "0.0.0.0", "--server.port", str(port)]
+            stcli.main()
+        except Exception:
+            import streamlit.web.bootstrap as stbootstrap
+            port = os.getenv("PORT", "8501")
+            sys.argv = ["streamlit", "run", __file__, "--server.address", "0.0.0.0", "--server.port", str(port)]
+            stbootstrap.run(__file__, False, [], {})
