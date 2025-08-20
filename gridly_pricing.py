@@ -1,4 +1,7 @@
-# --- Safe import: auto-install Streamlit if it's missing ---
+# -*- coding: utf-8 -*-
+# Gridly Pricing Calculator (EUR/USD + Annual) - ASCII-only to avoid encoding errors.
+
+# Safe import: auto-install Streamlit if missing (works even if requirements.txt can't be edited)
 try:
     import streamlit as st
 except ModuleNotFoundError:
@@ -7,13 +10,20 @@ except ModuleNotFoundError:
     import streamlit as st
 
 def money(x, currency):
-    euro = "\u20AC"  # avoids non-UTF-8 source bytes
+    euro = "\u20AC"  # Unicode escape so no literal euro character in file
     symbol = euro if currency == "EUR" else "$"
     return f"{symbol}{x:,.2f}"
 
 # ---------- Pricing Tables ----------
 PLATFORM_FEES = {
-    "BASIC": 0, "TEAM": 0, "ENT 1": 0, "ENT 2": 370, "ENT 3": 740, "ENT 4": 1110, "ENT 5": 1480, "LSP": 915
+    "BASIC": 0,
+    "TEAM": 0,
+    "ENT 1": 0,
+    "ENT 2": 370,
+    "ENT 3": 740,
+    "ENT 4": 1110,
+    "ENT 5": 1480,
+    "LSP": 915,
 }
 
 MODULES = {
@@ -72,7 +82,7 @@ def calculate_gridly_pricing(plan, modules, total_platform_seats, total_translat
         if m in module_pricing:
             total_monthly_fee += module_pricing[m]["fee"].get(plan, 0)
 
-    # Base extra-seat fees from table
+    # Base extra-seat fees from the tables
     base_platform_extra = module_pricing["CMS"]["extra_seat_fee"].get(plan, 0)
     base_translation_extra = module_pricing["CAT"]["extra_seat_fee"].get(plan, 0)
 
@@ -91,9 +101,12 @@ def calculate_gridly_pricing(plan, modules, total_platform_seats, total_translat
     total_annual_fee = round(total_monthly_fee * 12, 2)
 
     return (
-        total_monthly_fee, total_annual_fee,
-        included_platform_seats, extra_platform_seats,
-        included_translation_seats, extra_translation_seats
+        total_monthly_fee,
+        total_annual_fee,
+        included_platform_seats,
+        extra_platform_seats,
+        included_translation_seats,
+        extra_translation_seats,
     )
 
 def run_app():
@@ -106,6 +119,7 @@ def run_app():
     modules = st.multiselect("Select Modules", ["CMS", "TMS", "CAT"], default=["CMS", "TMS"])
     total_platform_seats = st.number_input("Total Platform Seats", min_value=0, value=0)
 
+    # Disable Translation Seats unless CAT is selected
     translation_input_disabled = "CAT" not in modules
     total_translation_seats = st.number_input(
         "Total Translation Seats",
@@ -115,9 +129,14 @@ def run_app():
     )
 
     if st.button("Calculate Pricing"):
-        (monthly_fee, annual_fee,
-         included_platform_seats, extra_platform_seats,
-         included_translation_seats, extra_translation_seats) = calculate_gridly_pricing(
+        (
+            monthly_fee,
+            annual_fee,
+            included_platform_seats,
+            extra_platform_seats,
+            included_translation_seats,
+            extra_translation_seats,
+        ) = calculate_gridly_pricing(
             plan, modules, total_platform_seats, total_translation_seats, billing_cycle, currency
         )
 
@@ -132,7 +151,7 @@ def run_app():
         st.write(f"Included Translation Seats: {included_translation_seats}")
         st.write(f"Extra Translation Seats: {extra_translation_seats}")
 
-# --- Auto-bootstrap Streamlit if the platform runs `python gridly_pricing.py` ---
+# Auto-bootstrap Streamlit if the platform runs "python gridly_pricing.py"
 if __name__ == "__main__":
     try:
         running_under_streamlit = hasattr(st, "runtime") and callable(getattr(st.runtime, "exists", None)) and st.runtime.exists()
@@ -145,7 +164,7 @@ if __name__ == "__main__":
         import os, sys
         try:
             from streamlit.web import cli as stcli
-            port = os.getenv("PORT", "8501")  # uses platform PORT if set, else 8501
+            port = os.getenv("PORT", "8501")
             sys.argv = ["streamlit", "run", __file__, "--server.address", "0.0.0.0", "--server.port", str(port)]
             stcli.main()
         except Exception:
